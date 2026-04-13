@@ -23,7 +23,7 @@ body {
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
-  background-image: url('https://images.pexels.com/photos/3008509/pexels-photo-3008509.jpeg?auto=compress&cs=tinysrgb&w=1600');
+  background-image: url('https://images.pexels.com/photos/1118873/pexels-photo-1118873.jpeg');
   /* Optional: Add a smooth transition for background image change if using JS for dynamic backgrounds */
   /* transition: background-image 0.5s ease-in-out; */
 }
@@ -224,6 +224,6 @@ input[type="text"]::placeholder {
   }
 
   .condition p {
-    font-size: 0.95rem;
-}
+    font-size: 0.95rem;
+  }
 }
