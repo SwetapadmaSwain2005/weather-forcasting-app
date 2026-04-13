@@ -1,70 +1,63 @@
-{% load static %} <!-- jinja template of django -->
+﻿{% load static %}
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather App</title> 
-    <link rel="stylesheet" href="{% static 'style.css' %}">
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap"
-      rel="stylesheet"
-    />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <link rel="stylesheet" href="{% static 'style.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet" />
 </head>
 
-<body {% if exception_occurred %} 
-    style="background-image: url('https://images.pexels.com/photos/3008509/pexels-photo-3008509.jpeg?auto=compress&cs=tinysrgb&w=1600');"
-  {% else %}
-  
-  style="background-image: url('{{ image_url }}');"
-  {% endif %}>
-  
+<body style="background-image: url('{{ background_url }}');">
   <div class="container">
     <h1 class="heading">Weather App</h1>
-    
-    
+
     {% if messages %}
-        <ul class="messages">
-            {% for message in messages %}
-            <li {% if message.tags %}class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-            {% endfor %}
-        </ul>
+      <ul class="messages">
+        {% for message in messages %}
+          <li {% if message.tags %}class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+      </ul>
     {% endif %}
-    {# ----------------------------- #}
 
     <form method="POST">
       {% csrf_token %}
-      <input type="text" name="city" placeholder="Enter City">
+      <input type="text" name="city" placeholder="Enter city name" value="{{ city }}">
       <button type="submit" class="btn">Search</button>
     </form>
-    
+
+    {% if search_history %}
+      <div class="history">
+        <p>Recent searches:</p>
+        <ul class="history-list">
+          {% for item in search_history %}
+            <li><a href="?city={{ item|urlencode }}">{{ item }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
     <div class="weather">
       <div class="left">
         <h2 class="temp">{{ temp }}&#176; C</h2>
-        <h2 class="city">{{ city }}</h2>
+        <h2 class="city">{{ city }}{% if country %}, {{ country }}{% endif %}</h2>
+        <p class="condition">{{ description }}</p>
+        <p>{{ day }}</p>
       </div>
       <div class="right">
         <div class="icon">
-          {# Using OpenWeatherMap's icon URL directly, matching the 100px size in CSS #}
-          <p><img src="http://openweathermap.org/img/w/{{ icon }}.png" alt="Weather Icon" width="100px"></p> 
+          <img src="https://openweathermap.org/img/wn/{{ icon }}@2x.png" alt="Weather Icon">
         </div>
         <div class="condition">
-          <p>{{ description }}</p>
-          <p>{{ day }}</p>
+          <p><strong>Feels like:</strong> {{ feels_like }}&#176; C</p>
+          <p><strong>Humidity:</strong> {{ humidity }}%</p>
+          <p><strong>Pressure:</strong> {{ pressure }} hPa</p>
+          <p><strong>Wind speed:</strong> {{ wind_speed }} m/s</p>
         </div>
       </div>
     </div>
   </div>
-
-
-{% if exception_occurred %}
-    <script>
-        window.onload = function() {
-            alert("City information is not available to Weather API");
-        }
-    </script>
-{% endif %} 
-
 </body>
 </html>

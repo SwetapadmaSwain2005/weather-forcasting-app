@@ -1,77 +1,89 @@
-from django.shortcuts import render
-from django.contrib import messages
+import os
 import requests
 import datetime
 
+from django.contrib import messages
+from django.shortcuts import render
+
 # View function for the homepage
-def home(request): 
-    # Check if city is submitted via POST request, otherwise default to 'indore'
-    if 'city' in request.POST:
-        city = request.POST['city']
+def home(request):
+    default_city = 'Indore'
+    search_history = request.session.get('search_history', [])
+
+    if request.method == 'POST':
+        city = request.POST.get('city', '').strip()
     else:
-        city = 'indore'
+        city = request.GET.get('city', '').strip()
 
-    # Base URL to fetch weather data for the given city (you need to append your API key)
-    url = f'https://api.openweathermap.org/data/2.5/weather?q={city}&appid=e4bb22371edfcdd757c0b0718d114260'
-    
-    # Parameters to request temperature in metric units (Celsius)
-    PARAMS = {'units': 'metric'}
+    if not city:
+        city = request.session.get('last_city', default_city)
 
-    # Your Google Custom Search API Key (keep it secret)
-    API_KEY = 'AIzaSyDVVWrYc1-yBtPhfbVqctR7wppXYxO_2JM'
+    api_key = os.environ.get('OPENWEATHER_API_KEY', '')
+    weather_data = {}
 
-    # Your Google Custom Search Engine ID
-    SEARCH_ENGINE_ID = '810f96da4d6e241d0'
+    if not api_key:
+        messages.error(request, 'OPENWEATHER_API_KEY is not configured. Set this environment variable before running the app.')
+    else:
+        try:
+            url = 'https://api.openweathermap.org/data/2.5/weather'
+            params = {
+                'q': city,
+                'appid': api_key,
+                'units': 'metric',
+            }
+            response = requests.get(url, params=params, timeout=10)
+            data = response.json()
 
-    # Prepare query to fetch city-related image from Google Images
-    query = city 
-    page = 1
-    start = (page - 1) * 10 + 1
-    searchType = 'image'
-    
-    # Final URL to call Google Custom Search for images
-    city_url = f"https://www.googleapis.com/customsearch/v1?key={API_KEY}&cx={SEARCH_ENGINE_ID}&q={query}&start={start}&searchType={searchType}&imgSize=xlarge"
+            if response.status_code != 200:
+                raise ValueError(data.get('message', 'Unable to fetch weather data'))
 
-    # Send request and parse JSON response to get image URL
-    data = requests.get(city_url).json()
-    count = 1
-    search_items = data.get("items")
-    image_url = search_items[1]['link']  # Get the 2nd image link from results
+            weather = data['weather'][0]
+            main = data['main']
+            wind = data.get('wind', {})
+            sys = data.get('sys', {})
 
-    try:
-        # Try fetching weather data from OpenWeather API
-        data = requests.get(url, params=PARAMS).json()
+            weather_data = {
+                'city': data.get('name', city),
+                'country': sys.get('country', ''),
+                'description': weather.get('description', '').title(),
+                'icon': weather.get('icon', '01d'),
+                'temp': round(main.get('temp', 0)),
+                'feels_like': round(main.get('feels_like', 0)),
+                'humidity': main.get('humidity', 0),
+                'pressure': main.get('pressure', 0),
+                'wind_speed': wind.get('speed', 0),
+                'day': datetime.date.today(),
+                'background_url': f'https://source.unsplash.com/1600x900/?{city},weather',
+            }
 
-        # Extract useful weather info from response
-        description = data['weather'][0]['description']  # Weather description (e.g., clear sky)
-        icon = data['weather'][0]['icon']  # Icon code for weather
-        temp = data['main']['temp']  # Temperature
-        day = datetime.date.today()  # Get current date
+            request.session['last_city'] = weather_data['city']
 
-        # Pass all data to template and render HTML
-        return render(request, 'weatherapp/index.html', {
-            'description': description,
-            'icon': icon,
-            'temp': temp,
-            'day': day,
-            'city': city,
-            'exception_occurred': False,
-            'image_url': image_url
-        })
+            if weather_data['city'] in search_history:
+                search_history.remove(weather_data['city'])
+            search_history.insert(0, weather_data['city'])
+            request.session['search_history'] = search_history[:5]
 
-    except KeyError:
-        # If something goes wrong (like invalid city), show an error
-        exception_occurred = True
-        messages.error(request, 'Entered data is not available to API')
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            messages.error(request, f'Could not load weather for "{city}". {exc}')
 
-        # Render template with fallback (default) values
-        day = datetime.date.today()
-        return render(request, 'weatherapp/index.html', {  #render=refresh the weatherapp
-            'description': 'clear sky',
+    if not weather_data:
+        weather_data = {
+            'city': default_city,
+            'country': 'IN',
+            'description': 'Clear Sky',
             'icon': '01d',
             'temp': 25,
-            'day': day,
-            'city': 'indore',
-            'exception_occurred': exception_occurred
-        })
+            'feels_like': 25,
+            'humidity': 50,
+            'pressure': 1013,
+            'wind_speed': 3.5,
+            'day': datetime.date.today(),
+            'background_url': 'https://images.pexels.com/photos/1118873/pexels-photo-1118873.jpeg?auto=compress&cs=tinysrgb&w=1600',
+        }
+        request.session['last_city'] = default_city
+
+    return render(request, 'weatherapp/index.html', {
+        'search_history': search_history,
+        **weather_data,
+    })
 
